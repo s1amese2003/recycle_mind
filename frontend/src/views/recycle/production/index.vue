@@ -281,7 +281,7 @@
 
 <script>
 import waves from '@/directive/waves'
-import { parseTime } from '@/utils'
+import { fetchPlanList, fetchRecordList } from '@/api/production'
 
 export default {
   name: 'Production',
@@ -354,32 +354,14 @@ export default {
   },
   methods: {
     getPlanList() {
-      // 模拟数据
-      this.planList = [
-        {
-          id: 'P001',
-          productName: '高纯度铜',
-          targetAmount: 1000,
-          unit: 'kg',
-          startTime: new Date(),
-          status: 'pending'
-        }
-      ]
+      fetchPlanList().then(response => {
+        this.planList = response.data.items
+      })
     },
     getRecordList() {
-      // 模拟数据
-      this.recordList = [
-        {
-          id: 'R001',
-          planId: 'P001',
-          productName: '高纯度铜',
-          actualAmount: 980,
-          unit: 'kg',
-          productionTime: new Date(),
-          operator: '张三',
-          qualityCheck: 'pass'
-        }
-      ]
+      fetchRecordList(this.listQuery).then(response => {
+        this.recordList = response.data.items
+      })
     },
     handleFilter() {
       this.getRecordList()

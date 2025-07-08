@@ -8,9 +8,6 @@
         class="filter-item"
         @keyup.enter.native="handleFilter"
       />
-      <el-select v-model="listQuery.type" placeholder="废料类型" clearable style="width: 130px" class="filter-item">
-        <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         搜索
       </el-button>
@@ -34,11 +31,7 @@
       highlight-current-row
       style="width: 100%;"
     >
-      <el-table-column label="废料编号" prop="id" align="center" width="100">
-        <template slot-scope="{row}">
-          <span>{{ row.id }}</span>
-        </template>
-      </el-table-column>
+      <el-table-column label="废料编号" prop="id" align="center" width="100" />
 
       <el-table-column label="废料名称" min-width="150px">
         <template slot-scope="{row}">
@@ -46,34 +39,36 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="废料类型" width="110px" align="center">
+      <el-table-column label="存放区域" width="120px" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.type }}</span>
+          <span>{{ row.storageArea }}</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="当前库存" width="120px" align="center">
+      <el-table-column label="库存" width="120px" align="center">
         <template slot-scope="{row}">
-          <span :class="row.stock < row.warningLevel ? 'text-warning' : ''">
-            {{ row.stock }} {{ row.unit }}
-          </span>
+          <span>{{ row.stock }} kg</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="预警值" width="120px" align="center">
+      <el-table-column label="单价" width="120px" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.warningLevel }} {{ row.unit }}</span>
+          <span>{{ row.unitPrice }} 元/kg</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="元素构成" min-width="200px" align="center">
+      <el-table-column label="成分构成" min-width="250px" align="left">
         <template slot-scope="{row}">
-          <el-tag v-for="(element, index) in row.elements"
-            :key="index"
-            size="mini"
-            style="margin-right: 5px">
-            {{ element.name }}: {{ element.percentage }}%
-          </el-tag>
+          <div style="display: flex; flex-wrap: wrap;">
+            <el-tag
+              v-for="(value, key) in row.composition"
+              :key="key"
+              size="mini"
+              style="margin-right: 5px; margin-bottom: 5px;"
+            >
+              {{ key }}: {{ value }}%
+            </el-tag>
+          </div>
         </template>
       </el-table-column>
 
@@ -191,6 +186,7 @@
 <script>
 import waves from '@/directive/waves' // waves directive
 import Pagination from '@/components/Pagination' // secondary package based on el-pagination
+import { fetchList } from '@/api/waste-material'
 
 export default {
   name: 'WasteMaterial',
@@ -245,31 +241,31 @@ export default {
     getList() {
       this.listLoading = true
       // 这里需要调用后端API获取数据
-      // fetchWasteMaterialList(this.listQuery).then(response => {
-      //   this.list = response.data.items
-      //   this.total = response.data.total
-      //   this.listLoading = false
-      // })
+      fetchList(this.listQuery).then(response => {
+        this.list = response.data.items
+        this.total = response.data.total
+        this.listLoading = false
+      })
 
       // 模拟数据
-      setTimeout(() => {
-        this.list = [
-          {
-            id: 1,
-            name: '废铜线',
-            type: 'metal',
-            stock: 1000,
-            unit: 'kg',
-            warningLevel: 500,
-            elements: [
-              { name: 'Cu', percentage: 95 },
-              { name: 'Fe', percentage: 5 }
-            ]
-          }
-        ]
-        this.total = 1
-        this.listLoading = false
-      }, 1000)
+      // setTimeout(() => {
+      //   this.list = [
+      //     {
+      //       id: 1,
+      //       name: '废铜线',
+      //       type: 'metal',
+      //       stock: 1000,
+      //       unit: 'kg',
+      //       warningLevel: 500,
+      //       elements: [
+      //         { name: 'Cu', percentage: 95 },
+      //         { name: 'Fe', percentage: 5 }
+      //       ]
+      //     }
+      //   ]
+      //   this.total = 1
+      //   this.listLoading = false
+      // }, 1000)
     },
     handleFilter() {
       this.listQuery.page = 1

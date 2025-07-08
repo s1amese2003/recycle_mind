@@ -35,13 +35,42 @@ export const constantRoutes = [
   {
     path: '/',
     component: Layout,
-    redirect: '/dashboard',
+    redirect: '/console',
     children: [
       {
-        path: 'dashboard',
+        path: 'console',
         component: () => import('@/views/dashboard/index'),
-        name: 'Dashboard',
-        meta: { title: '仪表板', icon: 'dashboard', affix: true }
+        name: 'Console',
+        meta: { title: '控制台', icon: 'dashboard', affix: true }
+      }
+    ]
+  },
+  {
+    path: '/user',
+    component: Layout,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/user/index'),
+        name: 'UserManage',
+        meta: { title: '用户管理', icon: 'peoples', roles: ['admin'] }
+      }
+    ]
+  },
+  {
+    path: '/user-login',
+    component: () => import('@/views/user/login'),
+    hidden: true
+  },
+  {
+    path: '/product',
+    component: Layout,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/product/index'),
+        name: 'ProductManage',
+        meta: { title: '产品管理', icon: 'component', roles: ['admin', 'operator'] }
       }
     ]
   }
