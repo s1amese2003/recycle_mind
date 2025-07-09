@@ -1,472 +1,363 @@
 <template>
   <div class="app-container">
-    <el-tabs v-model="activeTab">
-      <!-- 生产计划 -->
-      <el-tab-pane label="生产计划" name="plan">
-        <div class="filter-container">
-          <el-button
-            class="filter-item"
-            type="primary"
-            icon="el-icon-plus"
-            @click="handleCreatePlan"
-          >
-            新建计划
-          </el-button>
-        </div>
+    <!-- 生产计划 -->
+    <el-card class="box-card">
+      <div slot="header" class="clearfix">
+        <span>生产计划</span>
+        <el-button style="float: right; padding: 3px 0" type="text" icon="el-icon-plus" @click="handlePlanCreate">新增计划</el-button>
+      </div>
+      <el-table v-loading="planListLoading" :data="planList" border style="width: 100%">
+        <el-table-column prop="id" label="计划ID" width="180" />
+        <el-table-column prop="productName" label="成品名称" />
+        <el-table-column prop="targetAmount" label="计划产量" />
+        <el-table-column prop="unit" label="单位" />
+        <el-table-column prop="startTime" label="计划开始时间">
+          <template slot-scope="{row}">
+            <span>{{ row.startTime | parseTime('{y}-{m}-{d} {h}:{i}') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态">
+          <template slot-scope="{row}">
+            <el-tag :type="row.status | planStatusFilter">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150">
+          <template slot-scope="{row, $index}">
+            <el-button type="primary" size="mini" @click="handlePlanUpdate(row)">编辑</el-button>
+            <el-button type="danger" size="mini" @click="handlePlanDelete(row, $index)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
-        <el-table
-          :data="planList"
-          border
-          style="width: 100%"
-        >
-          <el-table-column
-            label="计划编号"
-            prop="id"
-            width="120"
-            align="center"
-          />
-          <el-table-column
-            label="成品名称"
-            prop="productName"
-            min-width="120"
-          />
-          <el-table-column
-            label="计划产量"
-            width="120"
-            align="center"
-          >
-            <template slot-scope="{row}">
-              {{ row.targetAmount }} {{ row.unit }}
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="开始时间"
-            width="180"
-            align="center"
-          >
-            <template slot-scope="{row}">
-              {{ row.startTime | parseTime('{y}-{m}-{d} {h}:{i}') }}
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="状态"
-            width="100"
-            align="center"
-          >
-            <template slot-scope="{row}">
-              <el-tag :type="row.status | statusTypeFilter">
-                {{ row.status | statusFilter }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="操作"
-            align="center"
-            width="230"
-          >
-            <template slot-scope="{row}">
-              <el-button
-                size="mini"
-                type="primary"
-                @click="handleUpdatePlan(row)"
-              >
-                编辑
-              </el-button>
-              <el-button
-                size="mini"
-                type="success"
-                @click="handleStartProduction(row)"
-                v-if="row.status === 'pending'"
-              >
-                开始生产
-              </el-button>
-              <el-button
-                size="mini"
-                type="info"
-                @click="handleCompletePlan(row)"
-                v-if="row.status === 'processing'"
-              >
-                完成生产
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-
-      <!-- 生产记录 -->
-      <el-tab-pane label="生产记录" name="record">
-        <div class="filter-container">
-          <el-date-picker
-            v-model="listQuery.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            class="filter-item"
-            style="width: 360px"
-          />
-          <el-button
-            v-waves
-            class="filter-item"
-            type="primary"
-            icon="el-icon-search"
-            @click="handleFilter"
-          >
-            搜索
-          </el-button>
-        </div>
-
-        <el-table
-          :data="recordList"
-          border
-          style="width: 100%"
-        >
-          <el-table-column
-            label="记录编号"
-            prop="id"
-            width="120"
-            align="center"
-          />
-          <el-table-column
-            label="计划编号"
-            prop="planId"
-            width="120"
-            align="center"
-          />
-          <el-table-column
-            label="成品名称"
-            prop="productName"
-            min-width="120"
-          />
-          <el-table-column
-            label="实际产量"
-            width="120"
-            align="center"
-          >
-            <template slot-scope="{row}">
-              {{ row.actualAmount }} {{ row.unit }}
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="生产时间"
-            width="180"
-            align="center"
-          >
-            <template slot-scope="{row}">
-              {{ row.productionTime | parseTime('{y}-{m}-{d} {h}:{i}') }}
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="操作员"
-            width="120"
-            align="center"
-            prop="operator"
-          />
-          <el-table-column
-            label="质检结果"
-            width="100"
-            align="center"
-          >
-            <template slot-scope="{row}">
-              <el-tag :type="row.qualityCheck === 'pass' ? 'success' : 'danger'">
-                {{ row.qualityCheck === 'pass' ? '合格' : '不合格' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="操作"
-            align="center"
-            width="120"
-          >
-            <template slot-scope="{row}">
-              <el-button
-                size="mini"
-                type="primary"
-                @click="handleViewDetail(row)"
-              >
-                查看详情
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-    </el-tabs>
+    <!-- 生产记录 -->
+    <el-card class="box-card" style="margin-top: 20px;">
+      <div slot="header" class="clearfix">
+        <span>生产记录</span>
+        <el-button style="float: right; padding: 3px 0" type="text" icon="el-icon-plus" @click="handleRecordCreate">新增记录</el-button>
+      </div>
+      <el-table v-loading="recordListLoading" :data="recordList" border style="width: 100%">
+        <el-table-column prop="id" label="记录ID" width="180" />
+        <el-table-column prop="planId" label="关联计划ID" width="180" />
+        <el-table-column prop="productName" label="成品名称" />
+        <el-table-column prop="actualAmount" label="实际产量" />
+        <el-table-column prop="unit" label="单位" />
+        <el-table-column prop="productionTime" label="生产时间">
+          <template slot-scope="{row}">
+            <span>{{ row.productionTime | parseTime('{y}-{m}-{d} {h}:{i}') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="operator" label="操作员" />
+        <el-table-column prop="qualityCheck" label="质检结果" />
+        <el-table-column label="操作" width="150">
+          <template slot-scope="{row, $index}">
+            <el-button type="primary" size="mini" @click="handleRecordUpdate(row)">编辑</el-button>
+            <el-button type="danger" size="mini" @click="handleRecordDelete(row, $index)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <!-- 生产计划对话框 -->
-    <el-dialog :title="dialogStatus === 'create' ? '新建生产计划' : '编辑生产计划'" :visible.sync="dialogFormVisible">
-      <el-form
-        ref="dataForm"
-        :rules="rules"
-        :model="temp"
-        label-position="left"
-        label-width="100px"
-        style="width: 400px; margin-left:50px;"
-      >
+    <el-dialog :title="planTextMap[planDialogStatus]" :visible.sync="planDialogFormVisible">
+      <el-form ref="planDataForm" :rules="planRules" :model="planTemp" label-position="left" label-width="120px" style="width: 400px; margin-left:50px;">
         <el-form-item label="成品名称" prop="productName">
-          <el-select v-model="temp.productName" placeholder="请选择成品">
-            <el-option
-              v-for="item in productOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
+          <el-input v-model="planTemp.productName" />
+        </el-form-item>
+        <el-form-item label="计划产量" prop="targetAmount">
+          <el-input-number v-model="planTemp.targetAmount" :min="0" />
+        </el-form-item>
+        <el-form-item label="单位" prop="unit">
+          <el-input v-model="planTemp.unit" />
+        </el-form-item>
+        <el-form-item label="计划开始时间" prop="startTime">
+          <el-date-picker v-model="planTemp.startTime" type="datetime" placeholder="选择日期时间" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="planTemp.status" placeholder="请选择">
+            <el-option label="待执行" value="待执行" />
+            <el-option label="进行中" value="进行中" />
+            <el-option label="已完成" value="已完成" />
+            <el-option label="已取消" value="已取消" />
           </el-select>
         </el-form-item>
-
-        <el-form-item label="计划产量" prop="targetAmount">
-          <el-input-number v-model="temp.targetAmount" :min="1" />
-          <span style="margin-left: 10px">{{ temp.unit }}</span>
-        </el-form-item>
-
-        <el-form-item label="开始时间" prop="startTime">
-          <el-date-picker
-            v-model="temp.startTime"
-            type="datetime"
-            placeholder="选择开始时间"
-          />
-        </el-form-item>
-
-        <el-form-item label="备注">
-          <el-input
-            type="textarea"
-            :rows="2"
-            placeholder="请输入备注内容"
-            v-model="temp.remark"
-          />
+        <el-form-item label="备注" prop="remark">
+          <el-input v-model="planTemp.remark" type="textarea" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">
-          取消
-        </el-button>
-        <el-button type="primary" @click="dialogStatus === 'create' ? createData() : updateData()">
-          确认
-        </el-button>
+        <el-button @click="planDialogFormVisible = false">取消</el-button>
+        <el-button type="primary" @click="planDialogStatus==='create'?createPlanData():updatePlanData()">确认</el-button>
       </div>
     </el-dialog>
 
-    <!-- 生产详情对话框 -->
-    <el-dialog title="生产详情" :visible.sync="detailDialogVisible" width="650px">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="记录编号">{{ detail.id }}</el-descriptions-item>
-        <el-descriptions-item label="计划编号">{{ detail.planId }}</el-descriptions-item>
-        <el-descriptions-item label="成品名称">{{ detail.productName }}</el-descriptions-item>
-        <el-descriptions-item label="实际产量">{{ detail.actualAmount }} {{ detail.unit }}</el-descriptions-item>
-        <el-descriptions-item label="生产时间">
-          {{ detail.productionTime | parseTime('{y}-{m}-{d} {h}:{i}') }}
-        </el-descriptions-item>
-        <el-descriptions-item label="操作员">{{ detail.operator }}</el-descriptions-item>
-        <el-descriptions-item label="质检结果" :span="2">
-          <el-tag :type="detail.qualityCheck === 'pass' ? 'success' : 'danger'">
-            {{ detail.qualityCheck === 'pass' ? '合格' : '不合格' }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="原料消耗" :span="2">
-          <el-table :data="detail.materials" border size="small">
-            <el-table-column prop="name" label="原料名称" />
-            <el-table-column prop="amount" label="消耗量" width="120" align="center">
-              <template slot-scope="{row}">
-                {{ row.amount }} {{ row.unit }}
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-descriptions-item>
-        <el-descriptions-item label="质检报告" :span="2">
-          {{ detail.qualityReport }}
-        </el-descriptions-item>
-      </el-descriptions>
+    <!-- 生产记录对话框 -->
+    <el-dialog :title="recordTextMap[recordDialogStatus]" :visible.sync="recordDialogFormVisible">
+      <el-form ref="recordDataForm" :rules="recordRules" :model="recordTemp" label-position="left" label-width="120px" style="width: 400px; margin-left:50px;">
+        <el-form-item label="关联计划ID" prop="planId">
+          <el-input v-model="recordTemp.planId" />
+        </el-form-item>
+        <el-form-item label="成品名称" prop="productName">
+          <el-input v-model="recordTemp.productName" />
+        </el-form-item>
+        <el-form-item label="实际产量" prop="actualAmount">
+          <el-input-number v-model="recordTemp.actualAmount" :min="0" />
+        </el-form-item>
+        <el-form-item label="单位" prop="unit">
+          <el-input v-model="recordTemp.unit" />
+        </el-form-item>
+        <el-form-item label="生产时间" prop="productionTime">
+          <el-date-picker v-model="recordTemp.productionTime" type="datetime" placeholder="选择日期时间" />
+        </el-form-item>
+        <el-form-item label="操作员" prop="operator">
+          <el-input v-model="recordTemp.operator" />
+        </el-form-item>
+        <el-form-item label="质检结果" prop="qualityCheck">
+          <el-input v-model="recordTemp.qualityCheck" />
+        </el-form-item>
+        <el-form-item label="质检报告" prop="qualityReport">
+          <el-input v-model="recordTemp.qualityReport" type="textarea" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="recordDialogFormVisible = false">取消</el-button>
+        <el-button type="primary" @click="recordDialogStatus==='create'?createRecordData():updateRecordData()">确认</el-button>
+      </div>
     </el-dialog>
+
   </div>
 </template>
 
 <script>
-import waves from '@/directive/waves'
-import { fetchPlanList, fetchRecordList } from '@/api/production'
+import {
+  getProductionPlans, addProductionPlan, updateProductionPlan, deleteProductionPlan,
+  getProductionRecords, addProductionRecord, updateProductionRecord, deleteProductionRecord
+} from '@/api/production'
+import { parseTime } from '@/utils'
 
 export default {
-  name: 'Production',
-  directives: { waves },
+  name: 'ProductionManagement',
   filters: {
-    statusFilter(status) {
-      const statusMap = {
-        pending: '待生产',
-        processing: '生产中',
-        completed: '已完成',
-        cancelled: '已取消'
-      }
-      return statusMap[status]
+    parseTime(time, cFormat) {
+      if (!time) return ''
+      return parseTime(time, cFormat)
     },
-    statusTypeFilter(status) {
+    planStatusFilter(status) {
       const statusMap = {
-        pending: 'info',
-        processing: 'warning',
-        completed: 'success',
-        cancelled: 'danger'
+        '已完成': 'success',
+        '进行中': 'primary',
+        '待执行': 'info',
+        '已取消': 'danger'
       }
-      return statusMap[status]
+      return statusMap[status] || 'warning'
     }
   },
   data() {
     return {
-      activeTab: 'plan',
+      // 生产计划
       planList: [],
+      planListLoading: true,
+      planDialogFormVisible: false,
+      planDialogStatus: '',
+      planTextMap: { update: '编辑计划', create: '新增计划' },
+      planTemp: {},
+      planRules: {
+        productName: [{ required: true, message: '成品名称不能为空', trigger: 'blur' }],
+        targetAmount: [{ required: true, message: '计划产量不能为空', trigger: 'blur' }],
+        unit: [{ required: true, message: '单位不能为空', trigger: 'blur' }],
+        startTime: [{ required: true, message: '计划时间不能为空', trigger: 'change' }],
+        status: [{ required: true, message: '状态不能为空', trigger: 'change' }]
+      },
+      // 生产记录
       recordList: [],
-      listQuery: {
-        dateRange: []
-      },
-      dialogStatus: '',
-      dialogFormVisible: false,
-      detailDialogVisible: false,
-      productOptions: [
-        { value: 'product1', label: '高纯度铜' },
-        { value: 'product2', label: '铝合金' }
-      ],
-      temp: {
-        id: undefined,
-        productName: '',
-        targetAmount: 100,
-        unit: 'kg',
-        startTime: undefined,
-        remark: ''
-      },
-      detail: {
-        id: '',
-        planId: '',
-        productName: '',
-        actualAmount: 0,
-        unit: 'kg',
-        productionTime: '',
-        operator: '',
-        qualityCheck: 'pass',
-        materials: [],
-        qualityReport: ''
-      },
-      rules: {
-        productName: [{ required: true, message: '请选择成品', trigger: 'change' }],
-        targetAmount: [{ required: true, message: '请输入计划产量', trigger: 'blur' }],
-        startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }]
+      recordListLoading: true,
+      recordDialogFormVisible: false,
+      recordDialogStatus: '',
+      recordTextMap: { update: '编辑记录', create: '新增记录' },
+      recordTemp: {},
+      recordRules: {
+        productName: [{ required: true, message: '成品名称不能为空', trigger: 'blur' }],
+        actualAmount: [{ required: true, message: '实际产量不能为空', trigger: 'blur' }],
+        unit: [{ required: true, message: '单位不能为空', trigger: 'blur' }],
+        productionTime: [{ required: true, message: '生产时间不能为空', trigger: 'change' }],
+        operator: [{ required: true, message: '操作员不能为空', trigger: 'blur' }],
+        qualityCheck: [{ required: true, message: '质检结果不能为空', trigger: 'blur' }]
       }
     }
   },
   created() {
-    this.getPlanList()
-    this.getRecordList()
+    this.fetchPlans()
+    this.fetchRecords()
   },
   methods: {
-    getPlanList() {
-      fetchPlanList().then(response => {
+    // --- 生产计划方法 ---
+    fetchPlans() {
+      this.planListLoading = true
+      getProductionPlans().then(response => {
         this.planList = response.data.items
+        this.planListLoading = false
       })
     },
-    getRecordList() {
-      fetchRecordList(this.listQuery).then(response => {
-        this.recordList = response.data.items
-      })
-    },
-    handleFilter() {
-      this.getRecordList()
-    },
-    handleCreatePlan() {
-      this.dialogStatus = 'create'
-      this.dialogFormVisible = true
-      this.$nextTick(() => {
-        this.$refs['dataForm'].clearValidate()
-      })
-    },
-    createData() {
-      this.$refs['dataForm'].validate((valid) => {
-        if (valid) {
-          // 调用后端API创建生产计划
-          this.dialogFormVisible = false
-          this.$notify({
-            title: '成功',
-            message: '生产计划创建成功',
-            type: 'success',
-            duration: 2000
-          })
-          this.getPlanList()
-        }
-      })
-    },
-    handleUpdatePlan(row) {
-      this.temp = Object.assign({}, row)
-      this.dialogStatus = 'update'
-      this.dialogFormVisible = true
-      this.$nextTick(() => {
-        this.$refs['dataForm'].clearValidate()
-      })
-    },
-    updateData() {
-      this.$refs['dataForm'].validate((valid) => {
-        if (valid) {
-          // 调用后端API更新生产计划
-          this.dialogFormVisible = false
-          this.$notify({
-            title: '成功',
-            message: '生产计划更新成功',
-            type: 'success',
-            duration: 2000
-          })
-          this.getPlanList()
-        }
-      })
-    },
-    handleStartProduction(row) {
-      this.$confirm('确认开始生产？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        // 调用后端API开始生产
-        this.$notify({
-          title: '成功',
-          message: '已开始生产',
-          type: 'success',
-          duration: 2000
-        })
-        this.getPlanList()
-      })
-    },
-    handleCompletePlan(row) {
-      this.$confirm('确认完成生产？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        // 调用后端API完成生产
-        this.$notify({
-          title: '成功',
-          message: '生产已完成',
-          type: 'success',
-          duration: 2000
-        })
-        this.getPlanList()
-      })
-    },
-    handleViewDetail(row) {
-      // 模拟获取详情数据
-      this.detail = {
-        ...row,
-        materials: [
-          { name: '废铜线', amount: 800, unit: 'kg' },
-          { name: '废铁屑', amount: 200, unit: 'kg' }
-        ],
-        qualityReport: '产品质量检测合格，各项指标符合要求。\n1. 纯度：99.5%\n2. 导电性：良好\n3. 物理性能：符合标准'
+    resetPlanTemp() {
+      this.planTemp = {
+        id: undefined,
+        productName: '',
+        targetAmount: 0,
+        unit: '吨',
+        startTime: new Date(),
+        status: '待执行',
+        remark: ''
       }
-      this.detailDialogVisible = true
+    },
+    handlePlanCreate() {
+      this.resetPlanTemp()
+      this.planDialogStatus = 'create'
+      this.planDialogFormVisible = true
+      this.$nextTick(() => this.$refs['planDataForm'].clearValidate())
+    },
+    createPlanData() {
+      this.$refs['planDataForm'].validate(valid => {
+        if (valid) {
+          const postData = {
+            product_name: this.planTemp.productName,
+            target_amount: this.planTemp.targetAmount,
+            unit: this.planTemp.unit,
+            start_time: this.planTemp.startTime,
+            status: this.planTemp.status,
+            remark: this.planTemp.remark
+          }
+          addProductionPlan(postData).then(() => {
+            this.fetchPlans()
+            this.planDialogFormVisible = false
+            this.$notify({ title: '成功', message: '新增计划成功', type: 'success', duration: 2000 })
+          })
+        }
+      })
+    },
+    handlePlanUpdate(row) {
+      this.planTemp = Object.assign({}, row)
+      this.planDialogStatus = 'update'
+      this.planDialogFormVisible = true
+      this.$nextTick(() => this.$refs['planDataForm'].clearValidate())
+    },
+    updatePlanData() {
+      this.$refs['planDataForm'].validate(valid => {
+        if (valid) {
+          // 确保所有字段都从前端的 camelCase 转换为后端的 snake_case
+          const postData = {
+            product_name: this.planTemp.productName,
+            target_amount: this.planTemp.targetAmount,
+            unit: this.planTemp.unit,
+            start_time: this.planTemp.startTime,
+            status: this.planTemp.status, // 确认 status 字段被正确传递
+            remark: this.planTemp.remark
+          }
+          updateProductionPlan(this.planTemp.id, postData).then(() => {
+            this.fetchPlans()
+            this.planDialogFormVisible = false
+            this.$notify({ title: '成功', message: '更新计划成功', type: 'success', duration: 2000 })
+          })
+        }
+      })
+    },
+    handlePlanDelete(row, index) {
+      this.$confirm('确定删除此生产计划吗?', '提示', { type: 'warning' }).then(() => {
+        deleteProductionPlan(row.id).then(() => {
+          this.planList.splice(index, 1)
+          this.$notify({ title: '成功', message: '删除计划成功', type: 'success', duration: 2000 })
+        })
+      }).catch(() => {})
+    },
+
+    // --- 生产记录方法 ---
+    fetchRecords() {
+      this.recordListLoading = true
+      getProductionRecords().then(response => {
+        this.recordList = response.data.items
+        this.recordListLoading = false
+      })
+    },
+    resetRecordTemp() {
+      this.recordTemp = {
+        id: undefined,
+        planId: '',
+        productName: '',
+        actualAmount: 0,
+        unit: '吨',
+        productionTime: new Date(),
+        operator: '',
+        qualityCheck: '合格',
+        qualityReport: ''
+      }
+    },
+    handleRecordCreate() {
+      this.resetRecordTemp()
+      this.recordDialogStatus = 'create'
+      this.recordDialogFormVisible = true
+      this.$nextTick(() => this.$refs['recordDataForm'].clearValidate())
+    },
+    createRecordData() {
+      this.$refs['recordDataForm'].validate(valid => {
+        if (valid) {
+          const postData = {
+            plan_id: this.recordTemp.planId,
+            product_name: this.recordTemp.productName,
+            actual_amount: this.recordTemp.actualAmount,
+            unit: this.recordTemp.unit,
+            production_time: this.recordTemp.productionTime,
+            operator: this.recordTemp.operator,
+            quality_check: this.recordTemp.qualityCheck,
+            quality_report: this.recordTemp.qualityReport
+          }
+          addProductionRecord(postData).then(() => {
+            this.fetchRecords()
+            this.recordDialogFormVisible = false
+            this.$notify({ title: '成功', message: '新增记录成功', type: 'success', duration: 2000 })
+          })
+        }
+      })
+    },
+    handleRecordUpdate(row) {
+      this.recordTemp = Object.assign({}, row)
+      this.recordDialogStatus = 'update'
+      this.recordDialogFormVisible = true
+      this.$nextTick(() => this.$refs['recordDataForm'].clearValidate())
+    },
+    updateRecordData() {
+      this.$refs['recordDataForm'].validate(valid => {
+        if (valid) {
+          const postData = {
+            plan_id: this.recordTemp.planId,
+            product_name: this.recordTemp.productName,
+            actual_amount: this.recordTemp.actualAmount,
+            unit: this.recordTemp.unit,
+            production_time: this.recordTemp.productionTime,
+            operator: this.recordTemp.operator,
+            quality_check: this.recordTemp.qualityCheck,
+            quality_report: this.recordTemp.qualityReport
+          }
+          updateProductionRecord(this.recordTemp.id, postData).then(() => {
+            this.fetchRecords()
+            this.recordDialogFormVisible = false
+            this.$notify({ title: '成功', message: '更新记录成功', type: 'success', duration: 2000 })
+          })
+        }
+      })
+    },
+    handleRecordDelete(row, index) {
+      this.$confirm('确定删除此生产记录吗?', '提示', { type: 'warning' }).then(() => {
+        deleteProductionRecord(row.id).then(() => {
+          this.recordList.splice(index, 1)
+          this.$notify({ title: '成功', message: '删除记录成功', type: 'success', duration: 2000 })
+        })
+      }).catch(() => {})
     }
   }
 }
 </script>
 
 <style scoped>
-.filter-container {
-  padding-bottom: 10px;
-}
-.filter-item {
-  display: inline-block;
-  vertical-align: middle;
-  margin-bottom: 10px;
-  margin-right: 10px;
+.box-card {
+  width: 100%;
 }
 </style>

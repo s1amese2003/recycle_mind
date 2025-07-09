@@ -21,10 +21,10 @@ export function parseTime(time, cFormat) {
       if ((/^[0-9]+$/.test(time))) {
         // support "1548221490638"
         time = parseInt(time)
-      } else {
-        // support safari
-        // https://stackoverflow.com/questions/4310953/invalid-date-in-safari
-        time = time.replace(new RegExp(/-/gm), '/')
+      } else if (!time.includes('T') || !time.includes('Z')) {
+        // support safari and YYYY-MM-DD HH:mm:ss format
+        // only apply replacement if it's not a standard ISO string
+        time = time.replace(new RegExp(/-/gm), '/').replace(' ', 'T')
       }
     }
 

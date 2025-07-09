@@ -41,19 +41,19 @@
 
       <el-table-column label="存放区域" width="120px" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.storageArea }}</span>
+          <span>{{ row.storage_area }}</span>
         </template>
       </el-table-column>
 
       <el-table-column label="库存" width="120px" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.stock }} kg</span>
+          <span>{{ row.stock_kg }} kg</span>
         </template>
       </el-table-column>
 
       <el-table-column label="单价" width="120px" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.unitPrice }} 元/kg</span>
+          <span>{{ row.unit_price }} 元/kg</span>
         </template>
       </el-table-column>
 
@@ -95,7 +95,7 @@
       @pagination="getList"
     />
 
-    <!-- 废料编辑对话框 -->
+    <!-- 废料编辑/新增对话框 -->
     <el-dialog :title="dialogStatus === 'create' ? '添加废料' : '编辑废料'" :visible.sync="dialogFormVisible">
       <el-form
         ref="dataForm"
@@ -109,21 +109,19 @@
           <el-input v-model="temp.name" />
         </el-form-item>
 
-        <el-form-item label="废料类型" prop="type">
-          <el-select v-model="temp.type" class="filter-item">
-            <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
+        <el-form-item label="存放区域" prop="storage_area">
+          <el-input v-model="temp.storage_area" />
         </el-form-item>
 
-        <el-form-item label="计量单位" prop="unit">
-          <el-input v-model="temp.unit" />
+        <el-form-item label="库存(kg)" prop="stock_kg">
+          <el-input-number v-model="temp.stock_kg" :min="0" />
         </el-form-item>
 
-        <el-form-item label="预警值" prop="warningLevel">
-          <el-input-number v-model="temp.warningLevel" :min="0" />
+        <el-form-item label="单价(元/kg)" prop="unit_price">
+          <el-input-number v-model="temp.unit_price" :min="0" :precision="2" />
         </el-form-item>
 
-        <el-form-item label="元素构成">
+        <el-form-item label="成分构成">
           <div v-for="(element, index) in temp.elements" :key="index" style="margin-bottom:10px">
             <el-input v-model="element.name" style="width:120px" placeholder="元素名称">
               <template slot="append">
@@ -186,7 +184,37 @@
 <script>
 import waves from '@/directive/waves' // waves directive
 import Pagination from '@/components/Pagination' // secondary package based on el-pagination
-import { fetchList } from '@/api/waste-material'
+import { getWasteMaterialList, createWasteMaterial, updateWasteMaterial, deleteWasteMaterial } from '@/api/waste-material'
+
+// Helper function to convert elements array to composition object
+function elementsToComposition(elements) {
+  if (!Array.isArray(elements)) return {}
+  return elements.reduce((acc, element) => {
+    if (element.name) {
+      acc[element.name] = element.percentage || 0
+    }
+    return acc
+  }, {})
+}
+
+// Helper function to convert composition object to elements array
+function compositionToElements(composition) {
+  let parsedComposition = composition
+  if (typeof parsedComposition === 'string' && parsedComposition) {
+    try {
+      parsedComposition = JSON.parse(parsedComposition)
+    } catch (e) {
+      console.error('解析成分构成字符串时出错:', e)
+      return []
+    }
+  }
+
+  if (typeof parsedComposition !== 'object' || parsedComposition === null) return []
+  return Object.keys(parsedComposition).map(key => ({
+    name: key,
+    percentage: parsedComposition[key]
+  }))
+}
 
 export default {
   name: 'WasteMaterial',
@@ -204,33 +232,26 @@ export default {
         keyword: undefined,
         type: undefined
       },
-      typeOptions: [
-        { label: '金属类', value: 'metal' },
-        { label: '塑料类', value: 'plastic' },
-        { label: '电子类', value: 'electronic' },
-        { label: '其他', value: 'other' }
-      ],
       temp: {
         id: undefined,
         name: '',
-        type: '',
-        unit: '',
-        stock: 0,
-        warningLevel: 0,
-        elements: []
+        storage_area: '',
+        stock_kg: 0,
+        unit_price: 0,
+        elements: [] // Use elements array for form editing
       },
       dialogFormVisible: false,
       dialogStatus: '',
       stockDialogVisible: false,
       stockForm: {
+        id: null,
         type: 'in',
         amount: 1,
         reason: ''
       },
       rules: {
         name: [{ required: true, message: '请输入废料名称', trigger: 'blur' }],
-        type: [{ required: true, message: '请选择废料类型', trigger: 'change' }],
-        unit: [{ required: true, message: '请输入计量单位', trigger: 'blur' }]
+        storage_area: [{ required: true, message: '请输入存放区域', trigger: 'blur' }]
       }
     }
   },
@@ -240,47 +261,30 @@ export default {
   methods: {
     getList() {
       this.listLoading = true
-      // 这里需要调用后端API获取数据
-      fetchList(this.listQuery).then(response => {
+      getWasteMaterialList(this.listQuery).then(response => {
         this.list = response.data.items
         this.total = response.data.total
         this.listLoading = false
+      }).catch(err => {
+        console.error('调用 getWasteMaterialList API 时捕获到错误:', err)
+        this.listLoading = false
       })
+    },
 
-      // 模拟数据
-      // setTimeout(() => {
-      //   this.list = [
-      //     {
-      //       id: 1,
-      //       name: '废铜线',
-      //       type: 'metal',
-      //       stock: 1000,
-      //       unit: 'kg',
-      //       warningLevel: 500,
-      //       elements: [
-      //         { name: 'Cu', percentage: 95 },
-      //         { name: 'Fe', percentage: 5 }
-      //       ]
-      //     }
-      //   ]
-      //   this.total = 1
-      //   this.listLoading = false
-      // }, 1000)
-    },
-    handleFilter() {
-      this.listQuery.page = 1
-      this.getList()
-    },
     resetTemp() {
       this.temp = {
         id: undefined,
         name: '',
-        type: '',
-        unit: '',
-        stock: 0,
-        warningLevel: 0,
+        storage_area: '',
+        stock_kg: 0,
+        unit_price: 0,
         elements: []
       }
+    },
+
+    handleFilter() {
+      this.listQuery.page = 1
+      this.getList()
     },
     handleCreate() {
       this.resetTemp()
@@ -293,19 +297,28 @@ export default {
     createData() {
       this.$refs['dataForm'].validate((valid) => {
         if (valid) {
-          // 调用后端API创建数据
-          this.dialogFormVisible = false
-          this.$notify({
-            title: '成功',
-            message: '创建成功',
-            type: 'success',
-            duration: 2000
+          const postData = { ...this.temp }
+          postData.composition = elementsToComposition(postData.elements)
+          delete postData.elements
+
+          createWasteMaterial(postData).then(() => {
+            this.getList() // Refresh list to get new data
+            this.dialogFormVisible = false
+            this.$notify({
+              title: '成功',
+              message: '创建成功',
+              type: 'success',
+              duration: 2000
+            })
           })
         }
       })
     },
     handleUpdate(row) {
-      this.temp = Object.assign({}, row)
+      this.temp = {
+        ...row,
+        elements: compositionToElements(row.composition)
+      }
       this.dialogStatus = 'update'
       this.dialogFormVisible = true
       this.$nextTick(() => {
@@ -315,76 +328,104 @@ export default {
     updateData() {
       this.$refs['dataForm'].validate((valid) => {
         if (valid) {
-          // 调用后端API更新数据
-          this.dialogFormVisible = false
-          this.$notify({
-            title: '成功',
-            message: '更新成功',
-            type: 'success',
-            duration: 2000
+          const postData = { ...this.temp }
+          postData.composition = elementsToComposition(postData.elements)
+          delete postData.elements
+
+          updateWasteMaterial(postData.id, postData).then(() => {
+            this.getList() // Refresh list
+            this.dialogFormVisible = false
+            this.$notify({
+              title: '成功',
+              message: '更新成功',
+              type: 'success',
+              duration: 2000
+            })
           })
         }
       })
     },
     handleDelete(row) {
-      this.$confirm('确认删除该废料记录?', '提示', {
+      this.$confirm(`确定要删除废料 ${row.name} 吗？`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        // 调用后端API删除数据
-        this.$notify({
-          title: '成功',
-          message: '删除成功',
-          type: 'success',
-          duration: 2000
+        deleteWasteMaterial(row.id).then(() => {
+          this.$notify({
+            title: '成功',
+            message: '删除成功',
+            type: 'success',
+            duration: 2000
+          })
+          const index = this.list.findIndex(v => v.id === row.id)
+          this.list.splice(index, 1)
         })
-      })
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消删除'
+        });
+      });
     },
-    handleStock(row) {
-      this.stockForm = {
-        type: 'in',
-        amount: 1,
-        reason: ''
-      }
-      this.stockDialogVisible = true
-    },
-    updateStock() {
-      // 调用后端API更新库存
-      this.stockDialogVisible = false
-      this.$notify({
-        title: '成功',
-        message: '库存更新成功',
-        type: 'success',
-        duration: 2000
-      })
-    },
+
     addElement() {
-      this.temp.elements.push({
-        name: '',
-        percentage: 0
-      })
+      this.temp.elements.push({ name: '', percentage: 0 });
     },
     removeElement(item) {
       const index = this.temp.elements.indexOf(item)
       if (index !== -1) {
         this.temp.elements.splice(index, 1)
       }
+    },
+
+    handleStock(row) {
+      this.stockForm.id = row.id
+      this.stockDialogVisible = true
+    },
+
+    updateStock() {
+      const currentItem = this.list.find(item => item.id === this.stockForm.id)
+      if (!currentItem) {
+        this.$message.error('未找到要更新的物料！')
+        return
+      }
+
+      let newStock = Number(currentItem.stock_kg)
+      const changeAmount = Number(this.stockForm.amount)
+
+      if (this.stockForm.type === 'in') {
+        newStock += changeAmount
+      } else {
+        newStock -= changeAmount
+        if (newStock < 0) {
+          this.$message.error('出库数量不能大于当前库存！')
+          return
+        }
+      }
+
+      const postData = { ...currentItem, stock_kg: newStock }
+
+      updateWasteMaterial(postData.id, postData).then(() => {
+        this.getList() // Refresh list
+        this.stockDialogVisible = false
+        this.$notify({
+          title: '成功',
+          message: '库存更新成功',
+          type: 'success',
+          duration: 2000
+        })
+      })
     }
   }
 }
 </script>
 
-<style>
-.text-warning {
-  color: #E6A23C;
+<style scoped>
+.app-container {
+  padding: 20px;
 }
 .filter-container {
-  padding-bottom: 10px;
-}
-.filter-item {
-  display: inline-block;
-  vertical-align: middle;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 </style>
