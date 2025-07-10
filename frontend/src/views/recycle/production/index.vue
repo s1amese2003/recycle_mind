@@ -135,6 +135,14 @@ import {
 } from '@/api/production'
 import { parseTime } from '@/utils'
 
+// 格式化日期为 YYYY-MM-DD HH:mm:ss
+function formatDateTime(date) {
+  if (!date) return ''
+  const d = new Date(date)
+  const pad = n => n < 10 ? '0' + n : n
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
 export default {
   name: 'ProductionManagement',
   filters: {
@@ -200,7 +208,7 @@ export default {
     },
     resetPlanTemp() {
       this.planTemp = {
-        id: undefined,
+        id: `plan_${new Date().getTime()}`,
         productName: '',
         targetAmount: 0,
         unit: '吨',
@@ -219,15 +227,16 @@ export default {
       this.$refs['planDataForm'].validate(valid => {
         if (valid) {
           const postData = {
+            id: this.planTemp.id,
             product_name: this.planTemp.productName,
             target_amount: this.planTemp.targetAmount,
             unit: this.planTemp.unit,
-            start_time: this.planTemp.startTime,
+            start_time: formatDateTime(this.planTemp.startTime),
             status: this.planTemp.status,
             remark: this.planTemp.remark
           }
           addProductionPlan(postData).then(() => {
-            this.fetchPlans()
+            this.planList.unshift(this.planTemp)
             this.planDialogFormVisible = false
             this.$notify({ title: '成功', message: '新增计划成功', type: 'success', duration: 2000 })
           })
@@ -243,17 +252,18 @@ export default {
     updatePlanData() {
       this.$refs['planDataForm'].validate(valid => {
         if (valid) {
-          // 确保所有字段都从前端的 camelCase 转换为后端的 snake_case
+          const tempData = Object.assign({}, this.planTemp)
           const postData = {
-            product_name: this.planTemp.productName,
-            target_amount: this.planTemp.targetAmount,
-            unit: this.planTemp.unit,
-            start_time: this.planTemp.startTime,
-            status: this.planTemp.status, // 确认 status 字段被正确传递
-            remark: this.planTemp.remark
+            product_name: tempData.productName,
+            target_amount: tempData.targetAmount,
+            unit: tempData.unit,
+            start_time: formatDateTime(tempData.startTime),
+            status: tempData.status,
+            remark: tempData.remark
           }
-          updateProductionPlan(this.planTemp.id, postData).then(() => {
-            this.fetchPlans()
+          updateProductionPlan(tempData.id, postData).then(() => {
+            const index = this.planList.findIndex(v => v.id === tempData.id)
+            this.planList.splice(index, 1, this.planTemp)
             this.planDialogFormVisible = false
             this.$notify({ title: '成功', message: '更新计划成功', type: 'success', duration: 2000 })
           })
@@ -261,12 +271,16 @@ export default {
       })
     },
     handlePlanDelete(row, index) {
-      this.$confirm('确定删除此生产计划吗?', '提示', { type: 'warning' }).then(() => {
+      this.$confirm('此操作将永久删除该计划, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
         deleteProductionPlan(row.id).then(() => {
-          this.planList.splice(index, 1)
           this.$notify({ title: '成功', message: '删除计划成功', type: 'success', duration: 2000 })
+          this.planList.splice(index, 1)
         })
-      }).catch(() => {})
+      })
     },
 
     // --- 生产记录方法 ---
@@ -279,7 +293,7 @@ export default {
     },
     resetRecordTemp() {
       this.recordTemp = {
-        id: undefined,
+        id: `record_${new Date().getTime()}`,
         planId: '',
         productName: '',
         actualAmount: 0,
@@ -287,7 +301,8 @@ export default {
         productionTime: new Date(),
         operator: '',
         qualityCheck: '合格',
-        qualityReport: ''
+        qualityReport: '',
+        materialsUsed: []
       }
     },
     handleRecordCreate() {
@@ -300,17 +315,19 @@ export default {
       this.$refs['recordDataForm'].validate(valid => {
         if (valid) {
           const postData = {
+            id: this.recordTemp.id,
             plan_id: this.recordTemp.planId,
             product_name: this.recordTemp.productName,
             actual_amount: this.recordTemp.actualAmount,
             unit: this.recordTemp.unit,
-            production_time: this.recordTemp.productionTime,
+            production_time: formatDateTime(this.recordTemp.productionTime),
             operator: this.recordTemp.operator,
             quality_check: this.recordTemp.qualityCheck,
-            quality_report: this.recordTemp.qualityReport
+            quality_report: this.recordTemp.qualityReport,
+            materials_used: this.recordTemp.materialsUsed
           }
           addProductionRecord(postData).then(() => {
-            this.fetchRecords()
+            this.recordList.unshift(this.recordTemp)
             this.recordDialogFormVisible = false
             this.$notify({ title: '成功', message: '新增记录成功', type: 'success', duration: 2000 })
           })
@@ -326,18 +343,21 @@ export default {
     updateRecordData() {
       this.$refs['recordDataForm'].validate(valid => {
         if (valid) {
+          const tempData = Object.assign({}, this.recordTemp)
           const postData = {
-            plan_id: this.recordTemp.planId,
-            product_name: this.recordTemp.productName,
-            actual_amount: this.recordTemp.actualAmount,
-            unit: this.recordTemp.unit,
-            production_time: this.recordTemp.productionTime,
-            operator: this.recordTemp.operator,
-            quality_check: this.recordTemp.qualityCheck,
-            quality_report: this.recordTemp.qualityReport
+            plan_id: tempData.planId,
+            product_name: tempData.productName,
+            actual_amount: tempData.actualAmount,
+            unit: tempData.unit,
+            production_time: formatDateTime(tempData.productionTime),
+            operator: tempData.operator,
+            quality_check: tempData.qualityCheck,
+            quality_report: tempData.qualityReport,
+            materials_used: tempData.materialsUsed
           }
-          updateProductionRecord(this.recordTemp.id, postData).then(() => {
-            this.fetchRecords()
+          updateProductionRecord(tempData.id, postData).then(() => {
+            const index = this.recordList.findIndex(v => v.id === tempData.id)
+            this.recordList.splice(index, 1, this.recordTemp)
             this.recordDialogFormVisible = false
             this.$notify({ title: '成功', message: '更新记录成功', type: 'success', duration: 2000 })
           })
@@ -345,12 +365,16 @@ export default {
       })
     },
     handleRecordDelete(row, index) {
-      this.$confirm('确定删除此生产记录吗?', '提示', { type: 'warning' }).then(() => {
+      this.$confirm('此操作将永久删除该记录, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
         deleteProductionRecord(row.id).then(() => {
-          this.recordList.splice(index, 1)
           this.$notify({ title: '成功', message: '删除记录成功', type: 'success', duration: 2000 })
+          this.recordList.splice(index, 1)
         })
-      }).catch(() => {})
+      })
     }
   }
 }
